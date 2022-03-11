@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"time"
 )
@@ -34,5 +35,42 @@ func (hub *Hub) Broadcast(point DataPoint) {
 			log.Print(`Buffer full, message dropped`)
 		}
 
+	}
+}
+
+func emptyBuffer(channel chan DataPoint) *[]DataPoint {
+	datapoints := make([]DataPoint, 0)
+	for {
+		select {
+		case NewDataPoint := <-channel:
+			datapoints = append(datapoints, NewDataPoint)
+		default:
+			return &datapoints
+		}
+	}
+}
+
+type Subscriber struct {
+	buffer chan DataPoint
+}
+
+func (sub *Subscriber) Notify(point DataPoint) error {
+	select {
+	case sub.buffer <- point:
+		return nil
+	default:
+		return errors.New("buffer full")
+	}
+}
+
+func (sub *Subscriber) EmptyBuffer() *[]DataPoint {
+	datapoints := make([]DataPoint, 0)
+	for {
+		select {
+		case NewDataPoint := <-sub.buffer:
+			datapoints = append(datapoints, NewDataPoint)
+		default:
+			return &datapoints
+		}
 	}
 }

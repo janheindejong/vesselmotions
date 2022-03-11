@@ -9,7 +9,7 @@ type MockPublisher struct {
 	hub *Hub
 }
 
-func (publisher *MockPublisher) Run() {
+func (publisher *MockPublisher) RunForever() {
 	for {
 		point := createMockDataPoint()
 		publisher.hub.Broadcast(*point)
