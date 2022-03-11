@@ -38,8 +38,8 @@ func SensorData(w http.ResponseWriter, r *http.Request) {
 		channel:            make(chan DataPoint, 100),
 		publishingInterval: 1000,
 	}
-	hub.Subscribe(&client)
-	defer hub.UnSubscribe(&client)
+	hub.Subscribe(client.channel)
+	defer hub.UnSubscribe(client.channel)
 
 	// Publish messages
 	err = client.Run(c)

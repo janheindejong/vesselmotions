@@ -11,20 +11,16 @@ type DataPoint struct {
 	Id        string    `json:"Id"`
 }
 
-type Subscriber interface {
-	Channel() chan DataPoint
-}
-
 type Hub struct {
-	subscribers map[Subscriber]string
+	subscribers map[chan DataPoint]string
 }
 
-func (hub *Hub) Subscribe(sub Subscriber) {
+func (hub *Hub) Subscribe(sub chan DataPoint) {
 	hub.subscribers[sub] = ""
 	log.Print("Added subscriber, number of subscriptions is ", len(hub.subscribers))
 }
 
-func (hub *Hub) UnSubscribe(sub Subscriber) {
+func (hub *Hub) UnSubscribe(sub chan DataPoint) {
 	delete(hub.subscribers, sub)
 	log.Print("Removed subscriber, number of subscriptions is ", len(hub.subscribers))
 }
@@ -32,7 +28,7 @@ func (hub *Hub) UnSubscribe(sub Subscriber) {
 func (hub *Hub) Broadcast(point DataPoint) {
 	for subscriber := range hub.subscribers {
 		select {
-		case subscriber.Channel() <- point:
+		case subscriber <- point:
 			// Message sent
 		default:
 			log.Print(`Buffer full, message dropped`)
