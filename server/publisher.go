@@ -5,11 +5,18 @@ import (
 	"time"
 )
 
-type MockPublisher struct {
+// MockSensorDataPublisher is responsible for generating random sensor data
+type MockSensorDataPublisher struct {
 	hub *Hub
 }
 
-func (publisher *MockPublisher) RunForever() {
+type DataPoint struct {
+	Value     float64   `json:"Value"`
+	Timestamp time.Time `json:"Timestamp"`
+	Id        string    `json:"Id"`
+}
+
+func (publisher *MockSensorDataPublisher) RunForever() {
 	for {
 		point := createMockDataPoint()
 		publisher.hub.Broadcast(*point)
