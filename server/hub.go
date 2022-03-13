@@ -12,9 +12,11 @@ type Hub struct {
 	subscribers map[chan DataPoint]string
 }
 
-func (hub *Hub) Subscribe(c chan DataPoint) {
+func (hub *Hub) Subscribe(bufferSize int) chan DataPoint {
+	c := make(chan DataPoint, bufferSize)
 	hub.subscribers[c] = ""
 	log.Print("Added subscriber, number of subscriptions is ", len(hub.subscribers))
+	return c
 }
 
 func (hub *Hub) UnSubscribe(c chan DataPoint) {

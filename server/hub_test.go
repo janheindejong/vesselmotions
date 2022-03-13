@@ -7,6 +7,7 @@ import (
 
 type MockSubscriber struct {
 	channel                chan DataPoint
+	bufferSize             int
 	numberOfPointsReceived int
 	latestValue            float64
 }
@@ -19,10 +20,10 @@ func (sub *MockSubscriber) Process() {
 	}
 }
 
-func NewMockSubscriber(size int) *MockSubscriber {
+func NewMockSubscriber(bufferSize int) *MockSubscriber {
 	return &MockSubscriber{
-		channel:                make(chan DataPoint, size),
 		numberOfPointsReceived: 0,
+		bufferSize:             bufferSize,
 	}
 }
 
@@ -39,7 +40,7 @@ func TestHub(t *testing.T) {
 	}
 
 	for _, sub := range subscribers {
-		hub.Subscribe(sub.channel)
+		sub.channel = hub.Subscribe(sub.bufferSize)
 	}
 
 	datapoints := []DataPoint{
