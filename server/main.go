@@ -22,11 +22,13 @@ func main() {
 	}
 
 	// Setup websocket handler
-	wsHandler := NewWebSocketHandler(&hub)
+	wsHandler := WebSocketHandler{
+		hub: &hub,
+	}
 
 	// Setup endpoints
 	s := http.NewServeMux()
-	s.Handle("/", wsHandler)
+	s.Handle("/", &wsHandler)
 
 	// Run stuff
 	go publisher.RunForever()

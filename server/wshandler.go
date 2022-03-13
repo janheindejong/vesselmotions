@@ -35,17 +35,23 @@ func (wsHandler *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// TODO subscription message
+
 	client := Client{
-		conn: conn,
-		hub:  wsHandler.hub,
+		conn:          conn,
+		hub:           wsHandler.hub,
+		pingTicker:    time.NewTicker(time.Duration(1e6)),
+		messageTicker: time.NewTicker(time.Duration(1e9)),
 	}
 
 	go client.listenAndSend()
 }
 
 type Client struct {
-	conn *websocket.Conn
-	hub  Subscribeable
+	conn          *websocket.Conn
+	hub           Subscribeable
+	pingTicker    *time.Ticker
+	messageTicker *time.Ticker
 }
 
 func (c *Client) listenAndSend() {
@@ -54,15 +60,15 @@ func (c *Client) listenAndSend() {
 		c.hub.UnSubscribe(buffer)
 		c.conn.Close()
 	}()
-	pingTicker := time.NewTicker(time.Duration(1e6))
-	messageTicker := time.NewTicker(time.Duration(1e9))
 	points := []DataPoint{} // Create new empty slice of datapoints
 
 	for {
 		select {
 		case p := <-buffer:
+			// Add any incoming new points
 			points = append(points, p)
-		case <-messageTicker.C:
+
+		case <-c.messageTicker.C:
 			// Empty list of points and send message
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			msg := fmt.Sprintf(`NumberOfPoints="%v"`, len(points))
@@ -70,8 +76,11 @@ func (c *Client) listenAndSend() {
 			if err != nil {
 				return
 			}
+
+			// Empty list of datapoints
 			points = []DataPoint{}
-		case <-pingTicker.C:
+
+		case <-c.pingTicker.C:
 			// Ping, and close if stuff is broken
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
