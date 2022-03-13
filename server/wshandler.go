@@ -9,9 +9,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type Subscribeable interface {
+	Subscribe(chan DataPoint)
+	UnSubscribe(chan DataPoint)
+}
+
 type WebSocketHandler struct {
-	hub      *Hub
-	upgrader websocket.Upgrader
+	hub           Subscribeable
+	upgrader      websocket.Upgrader
+	after         func(time.Duration) <-chan time.Time
+	bufferFactory func(size int) chan DataPoint
 }
 
 func (handler *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -24,14 +31,14 @@ func (handler *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	defer c.Close()
 
 	// Create buffer
-	buffer := make(chan DataPoint, 100)
+	buffer := handler.bufferFactory(100)
 	handler.hub.Subscribe(buffer)
 	defer handler.hub.UnSubscribe(buffer)
 
 	// Publish messages at regular intervals
 	for {
-		timeout := time.After(time.Duration(1000) * time.Millisecond) // Set new timeout
-		points := []DataPoint{}                                       // Create new empty slice of datapoints
+		timeout := handler.after(time.Duration(1000) * time.Millisecond) // Set new timeout
+		points := []DataPoint{}                                          // Create new empty slice of datapoints
 		// Listen to points coming on channel until timeout
 	getdata:
 		for {
@@ -44,12 +51,24 @@ func (handler *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		}
 		// Send message
 		msg := createMessage(&points)
+		// c.SetWriteDeadline(time.Now().Add(time.Duration(10) * time.Millisecond))
 		err := c.WriteMessage(websocket.TextMessage, []byte(msg))
 		if err != nil {
 			log.Println("closing connection: ", err)
 			break // Break outer loop
 
 		}
+	}
+}
+
+func NewWebSocketHandler(hub *Hub) *WebSocketHandler {
+	return &WebSocketHandler{
+		hub:      hub,
+		upgrader: websocket.Upgrader{},
+		after:    time.After,
+		bufferFactory: func(size int) chan DataPoint {
+			return make(chan DataPoint, size)
+		},
 	}
 }
 

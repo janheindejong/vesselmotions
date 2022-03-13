@@ -4,8 +4,6 @@ import (
 	"flag"
 	"log"
 	"net/http"
-
-	"github.com/gorilla/websocket"
 )
 
 func main() {
@@ -24,14 +22,11 @@ func main() {
 	}
 
 	// Setup websocket handler
-	wsHandler := WebSocketHandler{
-		hub:      &hub,
-		upgrader: websocket.Upgrader{},
-	}
+	wsHandler := NewWebSocketHandler(&hub)
 
 	// Setup endpoints
 	s := http.NewServeMux()
-	s.Handle("/", &wsHandler)
+	s.Handle("/", wsHandler)
 
 	// Run stuff
 	go publisher.RunForever()

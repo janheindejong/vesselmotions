@@ -1,9 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
-	"log"
-	"os"
 	"testing"
 	"time"
 )
@@ -29,12 +26,8 @@ func NewMockSubscriber(size int) *MockSubscriber {
 	}
 }
 
-func TestMain(m *testing.M) {
-	log.SetOutput(ioutil.Discard)
-	os.Exit(m.Run())
-}
-
 func TestHub(t *testing.T) {
+
 	// Arrange
 	hub := Hub{
 		subscribers: map[chan DataPoint]string{},
