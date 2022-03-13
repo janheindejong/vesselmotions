@@ -28,31 +28,31 @@ func (handler *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	handler.hub.Subscribe(buffer)
 	defer handler.hub.UnSubscribe(buffer)
 
-	// Publish messages
+	// Publish messages at regular intervals
 	for {
-		points := emptyBuffer(buffer)
-		msg := createMessage(points)
+		timeout := time.After(time.Duration(1000) * time.Millisecond) // Set new timeout
+		points := []DataPoint{}                                       // Create new empty slice of datapoints
+		// Listen to points coming on channel until timeout
+	getdata:
+		for {
+			select {
+			case point := <-buffer:
+				points = append(points, point)
+			case <-timeout:
+				break getdata
+			}
+		}
+		// Send message
+		msg := createMessage(&points)
 		err := c.WriteMessage(websocket.TextMessage, []byte(msg))
 		if err != nil {
 			log.Println("closing connection: ", err)
-			break
+			break // Break outer loop
+
 		}
-		time.Sleep(time.Millisecond * time.Duration(1000))
 	}
 }
 
 func createMessage(points *[]DataPoint) string {
 	return fmt.Sprintf(`NumberOfPoints="%v"`, len(*points))
-}
-
-func emptyBuffer(channel chan DataPoint) *[]DataPoint {
-	datapoints := make([]DataPoint, 0)
-	for {
-		select {
-		case NewDataPoint := <-channel:
-			datapoints = append(datapoints, NewDataPoint)
-		default:
-			return &datapoints
-		}
-	}
 }
