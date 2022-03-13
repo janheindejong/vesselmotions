@@ -33,9 +33,8 @@ func TestWsHandler(t *testing.T) {
 		Subscribed: 0,
 	}
 	wsHandler := WebSocketHandler{
-		hub:      &hub,
-		upgrader: websocket.Upgrader{},
-		after:    func(d time.Duration) <-chan time.Time { return timeout },
+		hub:   &hub,
+		after: func(d time.Duration) <-chan time.Time { return timeout },
 	}
 	server := httptest.NewServer(&wsHandler)
 	defer server.Close()

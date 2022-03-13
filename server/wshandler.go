@@ -9,20 +9,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var (
+	upgrader = websocket.Upgrader{}
+)
+
 type Subscribeable interface {
 	Subscribe(int) chan DataPoint
 	UnSubscribe(chan DataPoint)
 }
 
 type WebSocketHandler struct {
-	hub      Subscribeable
-	upgrader websocket.Upgrader
-	after    func(time.Duration) <-chan time.Time
+	hub   Subscribeable
+	after func(time.Duration) <-chan time.Time
 }
 
 func (wsHandler *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Upgrade websocket
-	conn, err := wsHandler.upgrader.Upgrade(w, r, nil)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
 		return
@@ -61,9 +64,8 @@ func (wsHandler *WebSocketHandler) listenForPoints(buffer chan DataPoint, d time
 
 func NewWebSocketHandler(hub *Hub) *WebSocketHandler {
 	return &WebSocketHandler{
-		hub:      hub,
-		upgrader: websocket.Upgrader{},
-		after:    time.After,
+		hub:   hub,
+		after: time.After,
 	}
 }
 
