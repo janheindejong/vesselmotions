@@ -6,8 +6,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/gorilla/websocket"
 )
+
+// https://github.com/gorilla/websocket/blob/69d0eb9187b6dead8fe84b2423518475e5cc535c/examples/chat/client.go
 
 const (
 	defaultBufferSize = 100
@@ -24,7 +27,8 @@ type Subscribeable interface {
 }
 
 type WebSocketHandler struct {
-	hub Subscribeable
+	hub   Subscribeable
+	clock clock.Clock
 }
 
 func (wsHandler *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -40,18 +44,17 @@ func (wsHandler *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	client := Client{
 		conn:          conn,
 		hub:           wsHandler.hub,
-		pingTicker:    time.NewTicker(time.Duration(1e6)),
-		messageTicker: time.NewTicker(time.Duration(1e9)),
+		messageTicker: wsHandler.clock.Ticker(time.Duration(1e9)),
 	}
 
+	// Launch client that actually handles the sending of data
 	go client.listenAndSend()
 }
 
 type Client struct {
 	conn          *websocket.Conn
 	hub           Subscribeable
-	pingTicker    *time.Ticker
-	messageTicker *time.Ticker
+	messageTicker *clock.Ticker
 }
 
 func (c *Client) listenAndSend() {
@@ -70,7 +73,6 @@ func (c *Client) listenAndSend() {
 
 		case <-c.messageTicker.C:
 			// Empty list of points and send message
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			msg := fmt.Sprintf(`NumberOfPoints="%v"`, len(points))
 			err := c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 			if err != nil {
@@ -79,13 +81,6 @@ func (c *Client) listenAndSend() {
 
 			// Empty list of datapoints
 			points = []DataPoint{}
-
-		case <-c.pingTicker.C:
-			// Ping, and close if stuff is broken
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				return
-			}
 		}
 	}
 }

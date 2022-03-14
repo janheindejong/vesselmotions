@@ -4,6 +4,8 @@ import (
 	"flag"
 	"log"
 	"net/http"
+
+	"github.com/benbjohnson/clock"
 )
 
 func main() {
@@ -23,7 +25,8 @@ func main() {
 
 	// Setup websocket handler
 	wsHandler := WebSocketHandler{
-		hub: &hub,
+		hub:   &hub,
+		clock: clock.New(),
 	}
 
 	// Setup endpoints

@@ -6,67 +6,83 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/gorilla/websocket"
 )
 
 // MockHub is used for testing, to be able to access the channel used by the
 // WebSocketHandler directly, and verify the calls to Subscribe and UnSubscribe
-type mockHub struct {
+type mockedHub struct {
 	Channel    chan DataPoint
 	Subscribed int
 }
 
-func (h *mockHub) Subscribe(bufferSize int) chan DataPoint {
+func (h *mockedHub) Subscribe(bufferSize int) chan DataPoint {
 	h.Subscribed++
 	return h.Channel
 }
 
-func (h *mockHub) UnSubscribe(channel chan DataPoint) {
+func (h *mockedHub) UnSubscribe(channel chan DataPoint) {
 	h.Subscribed--
 }
 
+const (
+	timeLayout = "2006-01-02T15:04:05-07:00"
+)
+
 func TestWsHandler(t *testing.T) {
 	// Prepare
-	timeout := make(chan time.Time)
-	hub := mockHub{
+
+	// Mocked Clock
+	mockedClock := clock.NewMock()
+	now, _ := time.Parse(timeLayout, "1987-10-22T00:00:00+00:00")
+	mockedClock.Set(now)
+
+	// Mocked Hub
+	mockedHub := mockedHub{
 		Channel:    make(chan DataPoint),
 		Subscribed: 0,
 	}
+
+	// WebSocketHandler and server
 	wsHandler := WebSocketHandler{
-		hub:   &hub,
-		after: func(d time.Duration) <-chan time.Time { return timeout },
+		hub:   &mockedHub,
+		clock: mockedClock,
 	}
 	server := httptest.NewServer(&wsHandler)
 	defer server.Close()
 
-	wsUrl := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
+	url := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
 
-	datapoints := []DataPoint{
+	// Datapoints
+	points := []DataPoint{
 		{
 			Value:     0,
-			Timestamp: time.Time{},
+			Timestamp: now,
 			Id:        "",
 		},
 		{
 			Value:     1,
-			Timestamp: time.Time{},
+			Timestamp: now.Add(time.Duration(500 * time.Millisecond)),
 			Id:        "",
 		},
 	}
 
 	// Act
-	ws, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
+	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		t.Fatalf("could not open a ws connection on %s %v", wsUrl, err)
+		t.Fatalf("could not open a ws connection on %s %v", url, err)
 	}
 	defer ws.Close()
 
-	for _, point := range datapoints {
-		hub.Channel <- point
+	// Send points to blocking channel, to ensure client takes them out of the queue
+	for _, p := range points {
+		mockedHub.Channel <- p
 	}
-	timeout <- time.Time{}
+	// Forward time by 1 second, to trigger message send
+	mockedClock.Add(time.Duration(1) * time.Second)
 
-	_, p, err := ws.ReadMessage() // TODO readJSON
+	_, data, err := ws.ReadMessage() // TODO readJSON
 	if err != nil {
 		t.Fatalf("Could not read message: %v", err)
 	}
@@ -75,20 +91,21 @@ func TestWsHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error while closing websocket: %v", err)
 	}
-	timeout <- time.Time{}
+	mockedClock.Add(time.Duration(2) * time.Second) // Has to be 2 seconds, to trigger two messages; first message always gets through for some reason
 
 	// Assert
 	t.Run("NumberOfPointsReceived", func(t *testing.T) {
-		got := string(p)
+		got := string(data)
 		want := `NumberOfPoints="2"`
 		if got != want {
 			t.Errorf("Incorrect message, got: %v, want: %v", got, want)
 		}
 	})
 
-	// time.Sleep(time.Duration(10) * time.Second)
-	// if hub.Subscribed != 0 {
-	// 	t.Error("Did not subscribe succesfully")
-	// }
+	t.Run("UnSubscribedSuccesfully", func(t *testing.T) {
+		if mockedHub.Subscribed != 0 {
+			t.Error("Did not subscribe succesfully")
+		}
+	})
 
 }
