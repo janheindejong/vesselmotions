@@ -44,14 +44,13 @@ func TestWsHandler(t *testing.T) {
 		Subscribed: 0,
 	}
 
-	// WebSocketHandler and server
+	// WebSocketHandler and test server
 	wsHandler := WebSocketHandler{
 		hub:   &mockedHub,
 		clock: mockedClock,
 	}
 	server := httptest.NewServer(&wsHandler)
 	defer server.Close()
-
 	url := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
 
 	// Datapoints
@@ -69,13 +68,16 @@ func TestWsHandler(t *testing.T) {
 	}
 
 	// Act
+
+	// Open websocket connection to test server
 	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		t.Fatalf("could not open a ws connection on %s %v", url, err)
 	}
 	defer ws.Close()
 
-	// Send points to blocking channel, to ensure client takes them out of the queue
+	// Send points to blocking channel, to ensure client takes them out
+	// of the queue before proceeding
 	for _, p := range points {
 		mockedHub.Channel <- p
 	}
@@ -87,11 +89,14 @@ func TestWsHandler(t *testing.T) {
 		t.Fatalf("Could not read message: %v", err)
 	}
 
+	// Close websocket from client side, to trigger teardown on server
 	err = ws.Close()
 	if err != nil {
 		t.Fatalf("Error while closing websocket: %v", err)
 	}
-	mockedClock.Add(time.Duration(2) * time.Second) // Has to be 2 seconds, to trigger two messages; first message always gets through for some reason
+	// Increment time by 2 seconds, to trigger 2 messages
+	// First message doesn't trigger an error for some reason
+	mockedClock.Add(time.Duration(2) * time.Second)
 
 	// Assert
 	t.Run("NumberOfPointsReceived", func(t *testing.T) {
@@ -102,9 +107,9 @@ func TestWsHandler(t *testing.T) {
 		}
 	})
 
-	t.Run("UnSubscribedSuccesfully", func(t *testing.T) {
+	t.Run("TearDown", func(t *testing.T) {
 		if mockedHub.Subscribed != 0 {
-			t.Error("Did not subscribe succesfully")
+			t.Error("Did not subscribe client succesfully")
 		}
 	})
 
