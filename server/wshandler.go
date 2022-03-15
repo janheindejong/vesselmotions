@@ -72,14 +72,14 @@ func (c *Client) listenAndSend() {
 			points = append(points, p)
 
 		case <-c.messageTicker.C:
-			// Empty list of points and send message
+			// Send message containing the received points
 			msg := fmt.Sprintf(`NumberOfPoints="%v"`, len(points))
 			err := c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 			if err != nil {
 				return
 			}
 
-			// Empty list of datapoints
+			// Empty list of datapoints, to be filled again next iteration
 			points = []DataPoint{}
 		}
 	}
