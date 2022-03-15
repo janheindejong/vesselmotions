@@ -10,6 +10,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	timeLayout = "2006-01-02T15:04:05-07:00"
+)
+
 // MockHub is used for testing, to be able to access the channel used by the
 // WebSocketHandler directly, and verify the calls to Subscribe and UnSubscribe
 type mockedHub struct {
@@ -25,10 +29,6 @@ func (h *mockedHub) Subscribe(bufferSize int) chan DataPoint {
 func (h *mockedHub) UnSubscribe(channel chan DataPoint) {
 	h.Subscribed--
 }
-
-const (
-	timeLayout = "2006-01-02T15:04:05-07:00"
-)
 
 func TestWsHandler(t *testing.T) {
 	// Prepare
@@ -107,7 +107,7 @@ func TestWsHandler(t *testing.T) {
 		}
 	})
 
-	t.Run("TearDown", func(t *testing.T) {
+	t.Run("UnSubscribe", func(t *testing.T) {
 		if mockedHub.Subscribed != 0 {
 			t.Error("Did not subscribe client succesfully")
 		}

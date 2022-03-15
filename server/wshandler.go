@@ -14,7 +14,6 @@ import (
 
 const (
 	defaultBufferSize = 100
-	writeWait         = 2 * time.Second
 )
 
 var (
