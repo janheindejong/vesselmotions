@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -53,16 +55,16 @@ func TestWsHandler(t *testing.T) {
 	defer server.Close()
 	url := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
 
-	// Datapoints
+	// Datapoints - timestamps to UTC for comparisons
 	points := []DataPoint{
 		{
 			Value:     0,
-			Timestamp: now,
+			Timestamp: now.UTC(),
 			Id:        "",
 		},
 		{
 			Value:     1,
-			Timestamp: now.Add(time.Duration(500 * time.Millisecond)),
+			Timestamp: now.Add(time.Duration(500 * time.Millisecond)).UTC(),
 			Id:        "",
 		},
 	}
@@ -84,33 +86,47 @@ func TestWsHandler(t *testing.T) {
 	// Forward time by 1 second, to trigger message send
 	mockedClock.Add(time.Duration(1) * time.Second)
 
-	_, data, err := ws.ReadMessage() // TODO readJSON
+	// Read and parse message
+	_, data, err := ws.ReadMessage()
 	if err != nil {
-		t.Fatalf("Could not read message: %v", err)
+		t.Fatalf("could not read message: %v", err)
+	}
+
+	var msg Message
+	err = json.Unmarshal(data, &msg)
+	if err != nil {
+		t.Fatalf("could not parse message: %v", err)
 	}
 
 	// Close websocket from client side, to trigger teardown on server
 	err = ws.Close()
 	if err != nil {
-		t.Fatalf("Error while closing websocket: %v", err)
+		t.Fatalf("error while closing websocket: %v", err)
 	}
 	// Increment time by 2 seconds, to trigger 2 messages
 	// First message doesn't trigger an error for some reason
 	mockedClock.Add(time.Duration(2) * time.Second)
 
 	// Assert
-	t.Run("NumberOfPointsReceived", func(t *testing.T) {
-		got := string(data)
-		want := `NumberOfPoints="2"`
-		if got != want {
-			t.Errorf("Incorrect message, got: %v, want: %v", got, want)
+	t.Run("DataPointsReceived", func(t *testing.T) {
+		got := msg.Data
+		want := points
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("incorrect data, got: %v, want: %v", got, want)
+		}
+	})
+
+	t.Run("MessageTime", func(t *testing.T) {
+		got := msg.Timestamp
+		want := now.Add(time.Duration(1) * time.Second).UTC()
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("incorrect message time, got: %v, want: %v", got, want)
 		}
 	})
 
 	t.Run("UnSubscribe", func(t *testing.T) {
 		if mockedHub.Subscribed != 0 {
-			t.Error("Did not subscribe client succesfully")
+			t.Error("did not subscribe client succesfully")
 		}
 	})
-
 }

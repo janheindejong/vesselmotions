@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -19,6 +18,11 @@ const (
 var (
 	upgrader = websocket.Upgrader{}
 )
+
+type Message struct {
+	Timestamp time.Time   `json:"Timestamp"`
+	Data      []DataPoint `json:"Data"`
+}
 
 type Subscribeable interface {
 	Subscribe(int) chan DataPoint
@@ -70,10 +74,13 @@ func (c *Client) listenAndSend() {
 			// Add any incoming new points
 			points = append(points, p)
 
-		case <-c.messageTicker.C:
+		case timestamp := <-c.messageTicker.C:
 			// Send message containing the received points
-			msg := fmt.Sprintf(`NumberOfPoints="%v"`, len(points))
-			err := c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			msg := Message{
+				Timestamp: timestamp,
+				Data:      points,
+			}
+			err := c.conn.WriteJSON(msg)
 			if err != nil {
 				return
 			}
