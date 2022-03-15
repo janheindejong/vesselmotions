@@ -53,7 +53,7 @@ func TestWsHandler(t *testing.T) {
 	}
 	server := httptest.NewServer(&wsHandler)
 	defer server.Close()
-	url := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
+	url := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	// Datapoints - timestamps to UTC for comparisons
 	points := []DataPoint{
