@@ -7,7 +7,7 @@ import (
 
 // MockSensorDataPublisher is responsible for generating random sensor data
 type MockSensorDataPublisher struct {
-	hub *Hub
+	hub *Hub[DataPoint]
 }
 
 type DataPoint struct {

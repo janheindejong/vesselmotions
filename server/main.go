@@ -14,7 +14,7 @@ func main() {
 	flag.Parse()
 
 	// Setup hub
-	hub := Hub{
+	hub := Hub[DataPoint]{
 		subscribers: map[chan DataPoint]string{},
 	}
 

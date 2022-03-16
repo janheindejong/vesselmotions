@@ -2,20 +2,19 @@ package main
 
 import (
 	"testing"
-	"time"
 )
 
 type MockSubscriber struct {
-	channel                chan DataPoint
+	channel                chan int
 	bufferSize             int
 	numberOfPointsReceived int
-	latestValue            float64
+	latestValue            int
 }
 
 func (sub *MockSubscriber) Process() {
 	close(sub.channel)
 	for point := range sub.channel {
-		sub.latestValue = point.Value
+		sub.latestValue = point
 		sub.numberOfPointsReceived++
 	}
 }
@@ -30,8 +29,8 @@ func NewMockSubscriber(bufferSize int) *MockSubscriber {
 func TestHub(t *testing.T) {
 
 	// Arrange
-	hub := Hub{
-		subscribers: map[chan DataPoint]string{},
+	hub := Hub[int]{
+		subscribers: map[chan int]string{},
 	}
 
 	subscribers := []*MockSubscriber{
@@ -43,22 +42,11 @@ func TestHub(t *testing.T) {
 		sub.channel = hub.Subscribe(sub.bufferSize)
 	}
 
-	datapoints := []DataPoint{
-		{
-			Value:     0,
-			Timestamp: time.Time{},
-			Id:        "",
-		},
-		{
-			Value:     1,
-			Timestamp: time.Time{},
-			Id:        "",
-		},
-	}
+	messages := []int{0, 1}
 
 	// Act
-	for _, datapoint := range datapoints {
-		hub.Broadcast(datapoint)
+	for _, msg := range messages {
+		hub.Broadcast(msg)
 	}
 
 	for _, sub := range subscribers {
@@ -86,17 +74,17 @@ func TestHub(t *testing.T) {
 
 	testCasesLatestValueReceived := map[string]struct {
 		sub  *MockSubscriber
-		want float64
+		want int
 	}{
-		"Receiver0LatestValue": {sub: subscribers[0], want: datapoints[0].Value},
-		"Receiver1LatestValue": {sub: subscribers[1], want: datapoints[1].Value},
+		"Receiver0LatestValue": {sub: subscribers[0], want: messages[0]},
+		"Receiver1LatestValue": {sub: subscribers[1], want: messages[1]},
 	}
 
 	for name, tc := range testCasesLatestValueReceived {
 		t.Run(name, func(t *testing.T) {
 			got := tc.sub.latestValue
 			if got != tc.want {
-				t.Errorf("Incorrect latest value, got: %f, want: %f", got, tc.want)
+				t.Errorf("Incorrect latest value, got: %d, want: %d", got, tc.want)
 			}
 		})
 	}
@@ -105,7 +93,6 @@ func TestHub(t *testing.T) {
 		got := len(hub.subscribers)
 		if got != 0 {
 			t.Errorf("Too many subscribers left, got: %d, want: 0", got)
-
 		}
 	})
 }
